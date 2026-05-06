@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 
-RUN npm ci --omit=dev && npx prisma generate
+RUN npm ci --omit=dev && node node_modules/prisma/build/index.js generate
 
 COPY --from=builder /app/dist ./dist
 
@@ -48,4 +48,4 @@ USER node
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node dist/main"]
