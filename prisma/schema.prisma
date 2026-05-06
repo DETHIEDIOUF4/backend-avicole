@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+}
+
+/// Salle poulettes (vente jeunes) vs salle pondeuses (œufs)
+enum RoomType {
+  PULLET
+  LAYER
+}
+
+enum SaleItemType {
+  PULLET
+  EGG
+  LAYER_HEN
+}
+
+enum StockItemType {
+  FEED
+  EGG
+  PULLET
+  LAYER_HEN
+}
+
+enum StockDirection {
+  IN
+  OUT
+}
+
+enum StockMovementReason {
+  PURCHASE
+  PRODUCTION
+  SALE
+  MORTALITY
+  ADJUSTMENT
+  FEED_CONSUMPTION
+  OTHER
+}
+
+enum ExpenseCategory {
+  FEED
+  VACCINE
+  OTHER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  email        String?  @unique
+  passwordHash String
+  firstName    String
+  lastName     String?
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  managedRooms  Room[]         @relation("RoomManager")
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  name      String
+  type      RoomType
+  capacity  Int?
+  managerId String?
+  manager   User?    @relation("RoomManager", fields: [managerId], references: [id], onDelete: SetNull)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pulletIntakes    PulletIntake[]
+  layerHenIntakes  LayerHenIntake[]
+  eggProductions  EggProduction[]
+  mortalities     Mortality[]
+  expenses        Expense[]
+  sales           Sale[]
+  stockMovements  StockMovement[]
+}
+
+model PulletIntake {
+  id        String    @id @default(cuid())
+  roomId    String
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  date      DateTime  @db.Date
+  quantity  Int
+  unitCost  Decimal?  @db.Decimal(12, 2)
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([roomId, date])
+}
+
+model LayerHenIntake {
+  id        String    @id @default(cuid())
+  roomId    String
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  date      DateTime  @db.Date
+  quantity  Int
+  unitCost  Decimal?  @db.Decimal(12, 2)
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([roomId, date])
+}
+
+model EggProduction {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  quantity  Int
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId, date])
+  @@index([roomId])
+}
+
+model Mortality {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  quantity  Int
+  cause     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId, date])
+}
+
+/// Dépense liée à une salle (null = charge globale / admin à interpréter côté app)
+model Expense {
+  id          String          @id @default(cuid())
+  roomId      String?
+  room        Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  date        DateTime        @db.Date
+  category    ExpenseCategory
+  amount      Decimal         @db.Decimal(12, 2)
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([roomId, date])
+}
+
+model Sale {
+  id        String       @id @default(cuid())
+  roomId    String
+  room      Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  date      DateTime     @db.Date
+  customerName String
+  itemType  SaleItemType
+  quantity  Int
+  unitPrice Decimal      @db.Decimal(12, 2)
+  total     Decimal      @db.Decimal(12, 2)
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([roomId, date])
+}
+
+model StockMovement {
+  id         String                @id @default(cuid())
+  roomId     String
+  room       Room                  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  occurredAt DateTime              @default(now())
+  itemType   StockItemType
+  direction  StockDirection
+  quantity   Int
+  reason     StockMovementReason
+  refId      String?
+  notes      String?
+  createdAt  DateTime              @default(now())
+
+  @@index([roomId, itemType])
+}
+
+/// Prix unitaires de référence pour les ventes (une ligne « default », éditée par l’admin).
+model SalesPricingConfig {
+  id                String   @id @default("default")
+  eggUnitPrice      Decimal  @default(0) @db.Decimal(12, 2)
+  pulletUnitPrice   Decimal  @default(0) @db.Decimal(12, 2)
+  layerHenUnitPrice Decimal  @default(0) @db.Decimal(12, 2)
+  updatedAt         DateTime @updatedAt
+}

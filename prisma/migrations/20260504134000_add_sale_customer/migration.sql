@@ -1,0 +1,5 @@
+ALTER TABLE "Sale"
+ADD COLUMN "customerName" TEXT NOT NULL DEFAULT 'Client divers';
+
+ALTER TABLE "Sale"
+ALTER COLUMN "customerName" DROP DEFAULT;
