@@ -1,0 +1,9 @@
+# Déployer ce dossier comme racine du service (Railway : Settings → Root Directory = backend).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
