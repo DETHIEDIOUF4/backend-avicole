@@ -22,6 +22,9 @@ import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
 
 type AuthUser = { sub: string; role: UserRole };
 
+/** Vente d’œufs au carton : une tablette = ce nombre d’œufs déduit du stock. */
+const EGGS_PER_TABLETTE = 30;
+
 @Injectable()
 export class RecordsService {
   constructor(
@@ -221,7 +224,11 @@ export class RecordsService {
         stockItemType = StockItemType.EGG;
         break;
     }
-    await this.assertStockAvailable(dto.roomId, stockItemType, dto.quantity);
+    let stockOutQty = dto.quantity;
+    if (dto.itemType === SaleItemType.EGG) {
+      stockOutQty = dto.quantity * EGGS_PER_TABLETTE;
+    }
+    await this.assertStockAvailable(dto.roomId, stockItemType, stockOutQty);
     const total = dto.unitPrice * dto.quantity;
     return this.prisma.$transaction(async (tx) => {
       const sale = await tx.sale.create({
@@ -242,7 +249,7 @@ export class RecordsService {
           occurredAt: new Date(dto.date),
           itemType: stockItemType,
           direction: StockDirection.OUT,
-          quantity: dto.quantity,
+          quantity: stockOutQty,
           reason: StockMovementReason.SALE,
           refId: sale.id,
           notes: dto.notes,

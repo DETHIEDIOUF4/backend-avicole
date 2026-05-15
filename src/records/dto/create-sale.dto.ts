@@ -24,10 +24,12 @@ export class CreateSaleDto {
   @MinLength(2)
   customerName!: string;
 
+  /** Poulettes / pondeuses : unités. Œufs : nombre de tablettes (× 30 œufs en stock). */
   @IsInt()
   @Min(1)
   quantity!: number;
 
+  /** Poulettes / pondeuses : prix à la tête. Œufs : prix pour une tablette (30 œufs). */
   @IsNumber()
   @Min(0)
   unitPrice!: number;

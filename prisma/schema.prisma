@@ -178,6 +178,7 @@ model Sale {
   date      DateTime     @db.Date
   customerName String
   itemType  SaleItemType
+  /// Poulettes / pondeuses : unités vivantes. Œufs : nombre de tablettes (30 œufs par tablette — mouvement stock).
   quantity  Int
   unitPrice Decimal      @db.Decimal(12, 2)
   total     Decimal      @db.Decimal(12, 2)
