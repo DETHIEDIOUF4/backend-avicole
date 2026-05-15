@@ -57,15 +57,16 @@ export class RecordsService {
       const totalExpense = unitDec.mul(dto.quantity);
       if (totalExpense.gt(0)) {
         const note = dto.notes?.trim();
+        const pulletWord = dto.quantity === 1 ? 'poulette' : 'poulettes';
+        const detail = `${dto.quantity} × ${unitDec.toString()} FCFA/tête`;
+        const baseDesc = `Appro de ${dto.quantity} ${pulletWord} (${detail})`;
         await tx.expense.create({
           data: {
             roomId: dto.roomId,
             date: new Date(dto.date),
             category: ExpenseCategory.APPROVISIONNEMENT,
             amount: totalExpense,
-            description: note
-              ? `Achat poulettes (${dto.quantity} × ${unitDec.toString()} FCFA/tête) — ${note}`
-              : `Achat poulettes (${dto.quantity} × ${unitDec.toString()} FCFA/tête)`,
+            description: note ? `${baseDesc} — ${note}` : baseDesc,
           },
         });
       }
@@ -101,15 +102,16 @@ export class RecordsService {
       const totalExpense = unitDec.mul(dto.quantity);
       if (totalExpense.gt(0)) {
         const note = dto.notes?.trim();
+        const henWord = dto.quantity === 1 ? 'pondeuse' : 'pondeuses';
+        const detail = `${dto.quantity} × ${unitDec.toString()} FCFA/tête`;
+        const baseDesc = `Appro de ${dto.quantity} ${henWord} (${detail})`;
         await tx.expense.create({
           data: {
             roomId: dto.roomId,
             date: new Date(dto.date),
             category: ExpenseCategory.APPROVISIONNEMENT,
             amount: totalExpense,
-            description: note
-              ? `Achat pondeuses (${dto.quantity} × ${unitDec.toString()} FCFA/tête) — ${note}`
-              : `Achat pondeuses (${dto.quantity} × ${unitDec.toString()} FCFA/tête)`,
+            description: note ? `${baseDesc} — ${note}` : baseDesc,
           },
         });
       }
