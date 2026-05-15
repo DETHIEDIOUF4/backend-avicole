@@ -50,6 +50,7 @@ enum StockMovementReason {
 enum ExpenseCategory {
   FEED
   VACCINE
+  APPROVISIONNEMENT
   OTHER
 }
 

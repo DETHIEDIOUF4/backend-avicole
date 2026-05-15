@@ -61,7 +61,7 @@ export class RecordsService {
           data: {
             roomId: dto.roomId,
             date: new Date(dto.date),
-            category: ExpenseCategory.OTHER,
+            category: ExpenseCategory.APPROVISIONNEMENT,
             amount: totalExpense,
             description: note
               ? `Achat poulettes (${dto.quantity} × ${unitDec.toString()} FCFA/tête) — ${note}`
@@ -105,7 +105,7 @@ export class RecordsService {
           data: {
             roomId: dto.roomId,
             date: new Date(dto.date),
-            category: ExpenseCategory.OTHER,
+            category: ExpenseCategory.APPROVISIONNEMENT,
             amount: totalExpense,
             description: note
               ? `Achat pondeuses (${dto.quantity} × ${unitDec.toString()} FCFA/tête) — ${note}`
