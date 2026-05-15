@@ -2,6 +2,14 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
+/** FRONTEND_URL : une origine ou plusieurs séparées par des virgules (sans espace autour si une seule). */
+function corsOrigins(): boolean | string[] {
+  const raw = process.env.FRONTEND_URL?.trim();
+  if (!raw) return true;
+  const list = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  return list.length ? list : true;
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(
@@ -12,7 +20,7 @@ async function bootstrap() {
     }),
   );
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? true,
+    origin: corsOrigins(),
     credentials: true,
   });
   app.setGlobalPrefix('api');

@@ -1,4 +1,4 @@
-import { IsDateString, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsDateString, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreatePulletIntakeDto {
   @IsString()
@@ -11,9 +11,10 @@ export class CreatePulletIntakeDto {
   @Min(1)
   quantity!: number;
 
-  @IsOptional()
+  /** Prix unitaire d’achat (FCFA / tête). Total dépense enregistré = quantité × prix unitaire. */
+  @IsNumber()
   @Min(0)
-  unitCost?: number;
+  unitCost!: number;
 
   @IsOptional()
   @IsString()

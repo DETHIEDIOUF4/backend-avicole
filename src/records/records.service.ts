@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
+  ExpenseCategory,
+  Prisma,
   RoomType,
   SaleItemType,
   StockDirection,
@@ -30,12 +32,13 @@ export class RecordsService {
   async addPulletIntake(user: AuthUser, dto: CreatePulletIntakeDto) {
     await this.roomsService.assertManagerRoomAccess(user, dto.roomId, RoomType.PULLET);
     return this.prisma.$transaction(async (tx) => {
+      const unitDec = new Prisma.Decimal(dto.unitCost);
       const intake = await tx.pulletIntake.create({
         data: {
           roomId: dto.roomId,
           date: new Date(dto.date),
           quantity: dto.quantity,
-          unitCost: dto.unitCost,
+          unitCost: unitDec,
           notes: dto.notes,
         },
       });
@@ -51,6 +54,21 @@ export class RecordsService {
           notes: dto.notes,
         },
       });
+      const totalExpense = unitDec.mul(dto.quantity);
+      if (totalExpense.gt(0)) {
+        const note = dto.notes?.trim();
+        await tx.expense.create({
+          data: {
+            roomId: dto.roomId,
+            date: new Date(dto.date),
+            category: ExpenseCategory.OTHER,
+            amount: totalExpense,
+            description: note
+              ? `Achat poulettes (${dto.quantity} × ${unitDec.toString()} FCFA/tête) — ${note}`
+              : `Achat poulettes (${dto.quantity} × ${unitDec.toString()} FCFA/tête)`,
+          },
+        });
+      }
       return intake;
     });
   }
@@ -58,12 +76,13 @@ export class RecordsService {
   async addLayerHenIntake(user: AuthUser, dto: CreateLayerHenIntakeDto) {
     await this.roomsService.assertManagerRoomAccess(user, dto.roomId, RoomType.LAYER);
     return this.prisma.$transaction(async (tx) => {
+      const unitDec = new Prisma.Decimal(dto.unitCost);
       const intake = await tx.layerHenIntake.create({
         data: {
           roomId: dto.roomId,
           date: new Date(dto.date),
           quantity: dto.quantity,
-          unitCost: dto.unitCost,
+          unitCost: unitDec,
           notes: dto.notes,
         },
       });
@@ -79,6 +98,21 @@ export class RecordsService {
           notes: dto.notes,
         },
       });
+      const totalExpense = unitDec.mul(dto.quantity);
+      if (totalExpense.gt(0)) {
+        const note = dto.notes?.trim();
+        await tx.expense.create({
+          data: {
+            roomId: dto.roomId,
+            date: new Date(dto.date),
+            category: ExpenseCategory.OTHER,
+            amount: totalExpense,
+            description: note
+              ? `Achat pondeuses (${dto.quantity} × ${unitDec.toString()} FCFA/tête) — ${note}`
+              : `Achat pondeuses (${dto.quantity} × ${unitDec.toString()} FCFA/tête)`,
+          },
+        });
+      }
       return intake;
     });
   }
