@@ -42,15 +42,52 @@ export class RoomsService {
     if (!exists) {
       throw new NotFoundException('Salle introuvable');
     }
-    if (dto.managerId) {
-      const manager = await this.prisma.user.findUnique({
-        where: { id: dto.managerId },
-      });
-      if (!manager || manager.role !== UserRole.MANAGER) {
-        throw new BadRequestException('managerId invalide');
+    const data: {
+      name?: string;
+      type?: RoomType;
+      capacity?: number | null;
+      isActive?: boolean;
+      managerId?: string | null;
+    } = {};
+    if (dto.name !== undefined) {
+      data.name = dto.name;
+    }
+    if (dto.type !== undefined) {
+      data.type = dto.type;
+    }
+    if (dto.capacity !== undefined) {
+      data.capacity = dto.capacity;
+    }
+    if (dto.isActive !== undefined) {
+      data.isActive = dto.isActive;
+    }
+    if (dto.managerId !== undefined) {
+      if (dto.managerId === null || dto.managerId === '') {
+        data.managerId = null;
+      } else {
+        const manager = await this.prisma.user.findUnique({
+          where: { id: dto.managerId },
+        });
+        if (!manager || manager.role !== UserRole.MANAGER) {
+          throw new BadRequestException('managerId invalide');
+        }
+        data.managerId = dto.managerId;
       }
     }
-    return this.prisma.room.update({ where: { id }, data: dto });
+    return this.prisma.room.update({ where: { id }, data });
+  }
+
+  /** Supprime la salle et toutes les données liées (admin uniquement). */
+  async remove(id: string) {
+    const exists = await this.prisma.room.findUnique({ where: { id } });
+    if (!exists) {
+      throw new NotFoundException('Salle introuvable');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.expense.deleteMany({ where: { roomId: id } });
+      await tx.room.delete({ where: { id } });
+    });
+    return { deleted: true, id };
   }
 
   async assertManagerRoomAccess(user: AuthUser, roomId: string, expectedType?: RoomType) {
