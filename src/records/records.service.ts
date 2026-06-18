@@ -376,7 +376,7 @@ export class RecordsService {
 
   async listRecentByRoom(user: AuthUser, roomId: string) {
     await this.roomsService.assertManagerRoomAccess(user, roomId);
-    const [eggProductions, layerHenIntakes, mortalities, expenses, sales] =
+    const [eggProductions, layerHenIntakes, mortalities, expenses, sales, feedConsumptions] =
       await Promise.all([
         this.prisma.eggProduction.findMany({
           where: { roomId },
@@ -403,8 +403,36 @@ export class RecordsService {
           take: 10,
           orderBy: { date: 'desc' },
         }),
+        this.prisma.stockMovement.findMany({
+          where: {
+            reason: StockMovementReason.FEED_CONSUMPTION,
+            refId: roomId,
+          },
+          take: 10,
+          orderBy: { occurredAt: 'desc' },
+          select: {
+            id: true,
+            occurredAt: true,
+            feedType: true,
+            quantity: true,
+            notes: true,
+          },
+        }),
       ]);
-    return { eggProductions, layerHenIntakes, mortalities, expenses, sales };
+    return {
+      eggProductions,
+      layerHenIntakes,
+      mortalities,
+      expenses,
+      sales,
+      feedConsumptions: feedConsumptions.map((row) => ({
+        id: row.id,
+        date: row.occurredAt.toISOString().slice(0, 10),
+        feedType: row.feedType,
+        quantity: row.quantity,
+        notes: row.notes,
+      })),
+    };
   }
 
   async summaryByRoom(
