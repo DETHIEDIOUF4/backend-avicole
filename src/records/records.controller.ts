@@ -11,6 +11,7 @@ import { CreateLayerHenIntakeDto } from './dto/create-layer-hen-intake.dto';
 import { CreateMortalityDto } from './dto/create-mortality.dto';
 import { CreatePulletIntakeDto } from './dto/create-pullet-intake.dto';
 import { CreateSaleDto } from './dto/create-sale.dto';
+import { CreateFeedConsumptionDto } from './dto/create-feed-consumption.dto';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
 import { RecordsService } from './records.service';
 
@@ -66,6 +67,14 @@ export class RecordsController {
     @Body() dto: CreateSaleDto,
   ) {
     return this.recordsService.addSale(user, dto);
+  }
+
+  @Post('feed-consumptions')
+  addFeedConsumption(
+    @CurrentUser() user: { sub: string; role: UserRole },
+    @Body() dto: CreateFeedConsumptionDto,
+  ) {
+    return this.recordsService.addFeedConsumption(user, dto);
   }
 
   @Post('stock-movements')

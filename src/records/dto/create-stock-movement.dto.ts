@@ -1,4 +1,4 @@
-import { StockDirection, StockItemType, StockMovementReason } from '@prisma/client';
+import { StockDirection, StockItemType, StockMovementReason, FeedType } from '@prisma/client';
 import {
   IsDateString,
   IsEnum,
@@ -17,6 +17,10 @@ export class CreateStockMovementDto {
 
   @IsEnum(StockItemType)
   itemType!: StockItemType;
+
+  @IsOptional()
+  @IsEnum(FeedType)
+  feedType?: FeedType;
 
   @IsEnum(StockDirection)
   direction!: StockDirection;

@@ -1,9 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { StockItemType, UserRole } from '@prisma/client';
 import {
   parseStatsDateRange,
   statsPeriodPayload,
 } from '../common/stats-date-range';
+import {
+  aggregateGlobalFeedStock,
+  feedTypesBelowThreshold,
+  FEED_STOCK_ALERT_THRESHOLD,
+} from '../common/global-feed-stock';
 import { PrismaService } from '../prisma/prisma.service';
 
 type AuthUser = { sub: string; role: UserRole };
@@ -37,7 +42,7 @@ export class DashboardService {
       ...dateBand,
     };
 
-    const [expensesAgg, salesAgg, mortalityAgg, eggsAgg, pulletsAgg, layerHensAgg, roomCount] =
+    const [expensesAgg, salesAgg, mortalityAgg, eggsAgg, pulletsAgg, layerHensAgg, roomCount, feedMoves] =
       await Promise.all([
         this.prisma.expense.aggregate({
           where: expenseWhere,
@@ -66,10 +71,23 @@ export class DashboardService {
         this.prisma.room.count({
           where: user.role === UserRole.ADMIN ? {} : { managerId: user.sub },
         }),
+        user.role === UserRole.ADMIN
+          ? this.prisma.stockMovement.findMany({
+              where: { itemType: StockItemType.FEED, roomId: null },
+              select: { direction: true, quantity: true, feedType: true },
+            })
+          : Promise.resolve([]),
       ]);
 
     const revenues = Number(salesAgg._sum.total ?? 0);
     const expenses = Number(expensesAgg._sum.amount ?? 0);
+    const stockByFeedType =
+      user.role === UserRole.ADMIN ? aggregateGlobalFeedStock(feedMoves) : undefined;
+    const feedStockAlerts =
+      user.role === UserRole.ADMIN && stockByFeedType
+        ? feedTypesBelowThreshold(stockByFeedType, FEED_STOCK_ALERT_THRESHOLD)
+        : undefined;
+
     return {
       rooms: roomCount,
       revenues,
@@ -79,6 +97,9 @@ export class DashboardService {
       eggProduction: Number(eggsAgg._sum.quantity ?? 0),
       pulletIntake: Number(pulletsAgg._sum.quantity ?? 0),
       layerHenIntake: Number(layerHensAgg._sum.quantity ?? 0),
+      stockByFeedType,
+      feedStockAlerts,
+      feedStockAlertThreshold: user.role === UserRole.ADMIN ? FEED_STOCK_ALERT_THRESHOLD : undefined,
       statsPeriod: range ? statsPeriodPayload(range) : null,
     };
   }

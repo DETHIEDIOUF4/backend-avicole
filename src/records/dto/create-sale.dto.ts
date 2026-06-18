@@ -29,10 +29,11 @@ export class CreateSaleDto {
   @Min(1)
   quantity!: number;
 
-  /** Poulettes / pondeuses : prix à la tête. Œufs : prix pour une tablette (30 œufs). */
+  /** Poulettes / pondeuses : prix à la tête. Œufs : prix pour une tablette (30 œufs). Omis pour gérant → prix admin. */
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  unitPrice!: number;
+  unitPrice?: number;
 
   @IsOptional()
   @IsString()

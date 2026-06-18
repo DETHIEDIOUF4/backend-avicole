@@ -1,7 +1,8 @@
-import { ExpenseCategory } from '@prisma/client';
+import { ExpenseCategory, FeedType } from '@prisma/client';
 import {
   IsDateString,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -26,4 +27,13 @@ export class CreateExpenseDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsEnum(FeedType)
+  feedType?: FeedType;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  feedQuantity?: number;
 }

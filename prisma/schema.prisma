@@ -54,6 +54,15 @@ enum ExpenseCategory {
   OTHER
 }
 
+/// Types de sacs d’aliment (stock par type par salle)
+enum FeedType {
+  DEMARRAGE
+  PREMIER_AGE
+  DEUXIEME_AGE
+  PONTE
+  PIQUE_PONTE
+}
+
 model User {
   id           String   @id @default(cuid())
   phone        String   @unique
@@ -158,15 +167,18 @@ model Mortality {
 
 /// Dépense liée à une salle (null = charge globale / admin à interpréter côté app)
 model Expense {
-  id          String          @id @default(cuid())
-  roomId      String?
-  room        Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  date        DateTime        @db.Date
-  category    ExpenseCategory
-  amount      Decimal         @db.Decimal(12, 2)
-  description String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id           String          @id @default(cuid())
+  roomId       String?
+  room         Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  date         DateTime        @db.Date
+  category     ExpenseCategory
+  amount       Decimal         @db.Decimal(12, 2)
+  description  String?
+  /// Achat aliment : type de sac et quantité (mouvement stock IN)
+  feedType     FeedType?
+  feedQuantity Int?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   @@index([roomId, date])
 }
@@ -191,10 +203,13 @@ model Sale {
 
 model StockMovement {
   id         String                @id @default(cuid())
-  roomId     String
-  room       Room                  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  /// Null = stock aliment global (entrepôt)
+  roomId     String?
+  room       Room?                 @relation(fields: [roomId], references: [id], onDelete: Cascade)
   occurredAt DateTime              @default(now())
   itemType   StockItemType
+  /// Obligatoire pour itemType FEED (stock par type de sac)
+  feedType   FeedType?
   direction  StockDirection
   quantity   Int
   reason     StockMovementReason
@@ -203,6 +218,8 @@ model StockMovement {
   createdAt  DateTime              @default(now())
 
   @@index([roomId, itemType])
+  @@index([roomId, itemType, feedType])
+  @@index([itemType, feedType])
 }
 
 /// Prix unitaires de référence pour les ventes (une ligne « default », éditée par l’admin).
