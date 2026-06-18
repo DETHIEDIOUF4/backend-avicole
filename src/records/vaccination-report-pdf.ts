@@ -46,9 +46,9 @@ export function buildVaccinationReportPdf(input: VaccinationReportInput): Promis
     doc.fillColor('#ffffff').fontSize(20).font('Helvetica-Bold');
     doc.text(input.farmName, 48, 26, { width: pageWidth });
     doc.fontSize(13).font('Helvetica-Bold');
-    doc.text('Carnet de vaccination — suivi du cheptel', 48, 52);
+    doc.text('Carnet de vaccination ', 48, 52);
     doc.fontSize(10).font('Helvetica');
-    doc.text('Document client (sans montants)', 48, 72);
+    // doc.text('Document client (sans montants)', 48, 72);
 
     doc.fillColor('#1e2a18').fontSize(11).font('Helvetica-Bold');
     doc.text('Identification du lot', 48, 114);
@@ -107,8 +107,8 @@ export function buildVaccinationReportPdf(input: VaccinationReportInput): Promis
 
     doc.fontSize(8).fillColor('#6b7a62');
     doc.text(
-      'Ce document atteste du suivi sanitaire du cheptel (vaccinations et interventions). ' +
-        'Il est destiné aux clients et ne comporte aucune information financière.',
+      'Ce document atteste du suivi sanitaire du  (vaccinations et interventions). ' +
+        '',
       48,
       doc.page.height - 56,
       { width: pageWidth, align: 'center' },
