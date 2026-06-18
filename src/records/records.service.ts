@@ -376,40 +376,41 @@ export class RecordsService {
 
   async listRecentByRoom(user: AuthUser, roomId: string) {
     await this.roomsService.assertManagerRoomAccess(user, roomId);
+    const limitRecent = user.role !== UserRole.MANAGER;
     const [eggProductions, layerHenIntakes, mortalities, expenses, sales, feedConsumptions] =
       await Promise.all([
         this.prisma.eggProduction.findMany({
           where: { roomId },
-          take: 10,
           orderBy: { date: 'desc' },
+          ...(limitRecent ? { take: 10 } : {}),
         }),
         this.prisma.layerHenIntake.findMany({
           where: { roomId },
-          take: 10,
           orderBy: { date: 'desc' },
+          ...(limitRecent ? { take: 10 } : {}),
         }),
         this.prisma.mortality.findMany({
           where: { roomId },
-          take: 10,
           orderBy: { date: 'desc' },
+          ...(limitRecent ? { take: 10 } : {}),
         }),
         this.prisma.expense.findMany({
           where: { roomId },
-          take: 10,
           orderBy: { date: 'desc' },
+          ...(limitRecent ? { take: 10 } : {}),
         }),
         this.prisma.sale.findMany({
           where: { roomId },
-          take: 10,
           orderBy: { date: 'desc' },
+          ...(limitRecent ? { take: 10 } : {}),
         }),
         this.prisma.stockMovement.findMany({
           where: {
             reason: StockMovementReason.FEED_CONSUMPTION,
             refId: roomId,
           },
-          take: 10,
           orderBy: { occurredAt: 'desc' },
+          ...(limitRecent ? { take: 10 } : {}),
           select: {
             id: true,
             occurredAt: true,
@@ -441,13 +442,14 @@ export class RecordsService {
     range: StatsDateRangeFilter | null,
   ) {
     const room = await this.roomsService.assertManagerRoomAccess(user, roomId);
-    const dateBand = range
-      ? { date: { gte: range.from, lte: range.toDay } }
+    const effectiveRange = user.role === UserRole.MANAGER ? null : range;
+    const dateBand = effectiveRange
+      ? { date: { gte: effectiveRange.from, lte: effectiveRange.toDay } }
       : {};
-    const stockWhere = range
+    const stockWhere = effectiveRange
       ? {
           roomId,
-          occurredAt: { lte: range.toEndInclusive },
+          occurredAt: { lte: effectiveRange.toEndInclusive },
         }
       : { roomId };
 
@@ -505,7 +507,7 @@ export class RecordsService {
       pulletIntakeQty: Number(pulletIntake._sum.quantity ?? 0),
       layerHenIntakeQty: Number(layerHenIntake._sum.quantity ?? 0),
       stockByItem,
-      statsPeriod: range ? statsPeriodPayload(range) : null,
+      statsPeriod: effectiveRange ? statsPeriodPayload(effectiveRange) : null,
     };
   }
 
