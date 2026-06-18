@@ -3,14 +3,12 @@ import PDFDocument from 'pdfkit';
 export type VaccinationReportRow = {
   date: Date;
   description: string;
-  amount: number;
 };
 
 export type VaccinationReportInput = {
   farmName: string;
   roomName: string;
   roomTypeLabel: string;
-  managerLabel?: string;
   rows: VaccinationReportRow[];
   generatedAt?: Date;
 };
@@ -23,13 +21,14 @@ function formatDateFr(value: Date): string {
   });
 }
 
-function formatMoneyFcfa(value: number): string {
-  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value)} FCFA`;
-}
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return `${text.slice(0, max - 1)}…`;
+function wrapRowHeight(
+  doc: InstanceType<typeof PDFDocument>,
+  text: string,
+  width: number,
+  minHeight: number,
+): number {
+  const h = doc.heightOfString(text, { width });
+  return Math.max(minHeight, h + 10);
 }
 
 export function buildVaccinationReportPdf(input: VaccinationReportInput): Promise<Buffer> {
@@ -41,77 +40,77 @@ export function buildVaccinationReportPdf(input: VaccinationReportInput): Promis
     doc.on('error', reject);
 
     const generatedAt = input.generatedAt ?? new Date();
-    const total = input.rows.reduce((sum, row) => sum + row.amount, 0);
     const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
-    doc.rect(0, 0, doc.page.width, 88).fill('#2f5235');
+    doc.rect(0, 0, doc.page.width, 96).fill('#2f5235');
     doc.fillColor('#ffffff').fontSize(20).font('Helvetica-Bold');
-    doc.text(input.farmName, 48, 28, { width: pageWidth });
-    doc.fontSize(13).font('Helvetica');
-    doc.text('Rapport de vaccination', 48, 54);
+    doc.text(input.farmName, 48, 26, { width: pageWidth });
+    doc.fontSize(13).font('Helvetica-Bold');
+    doc.text('Carnet de vaccination — suivi du cheptel', 48, 52);
+    doc.fontSize(10).font('Helvetica');
+    doc.text('Document client (sans montants)', 48, 72);
 
     doc.fillColor('#1e2a18').fontSize(11).font('Helvetica-Bold');
-    doc.text('Informations salle', 48, 108);
+    doc.text('Identification du lot', 48, 114);
     doc.font('Helvetica').fontSize(10).fillColor('#3d4a34');
-    doc.text(`Salle : ${input.roomName}`, 48, 126);
-    doc.text(`Type : ${input.roomTypeLabel}`, 48, 142);
-    if (input.managerLabel) {
-      doc.text(`Gérant : ${input.managerLabel}`, 48, 158);
-    }
-    doc.text(`Document généré le : ${formatDateFr(generatedAt)}`, 48, input.managerLabel ? 174 : 158);
+    doc.text(`Lot / salle : ${input.roomName}`, 48, 132);
+    doc.text(`Type de volaille : ${input.roomTypeLabel}`, 48, 148);
+    doc.text(`Édité le : ${formatDateFr(generatedAt)}`, 48, 164);
 
-    const tableTop = input.managerLabel ? 200 : 184;
+    const tableTop = 192;
     const colDate = 48;
-    const colDesc = 130;
-    const colAmount = 430;
-    const rowHeight = 22;
+    const colVaccin = 148;
+    const colDateWidth = 88;
+    const colVaccinWidth = pageWidth - colDateWidth;
 
     doc.fillColor('#2f5235').rect(48, tableTop, pageWidth, 24).fill();
     doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(9);
     doc.text('Date', colDate + 6, tableTop + 7);
-    doc.text('Détail / vaccin', colDesc + 6, tableTop + 7);
-    doc.text('Montant', colAmount + 6, tableTop + 7, { width: 110, align: 'right' });
+    doc.text('Vaccin / intervention', colVaccin + 6, tableTop + 7);
 
     let y = tableTop + 24;
     doc.font('Helvetica').fontSize(9).fillColor('#1e2a18');
 
     if (input.rows.length === 0) {
-      doc.fillColor('#3d4a34').text('Aucune dépense vaccin enregistrée pour cette salle.', 48, y + 10);
+      doc.fillColor('#3d4a34').text(
+        'Aucune vaccination enregistrée pour ce lot pour le moment.',
+        48,
+        y + 10,
+        { width: pageWidth },
+      );
     } else {
-      for (const row of input.rows) {
-        if (y > doc.page.height - 120) {
+      input.rows.forEach((row, index) => {
+        const label = row.description?.trim() || 'Vaccination';
+        const rowHeight = wrapRowHeight(doc, label, colVaccinWidth - 12, 22);
+
+        if (y + rowHeight > doc.page.height - 72) {
           doc.addPage();
           y = 48;
         }
-        const bg = input.rows.indexOf(row) % 2 === 0 ? '#f4f7f2' : '#ffffff';
+
+        const bg = index % 2 === 0 ? '#f4f7f2' : '#ffffff';
         doc.fillColor(bg).rect(48, y, pageWidth, rowHeight).fill();
         doc.fillColor('#1e2a18');
-        doc.text(formatDateFr(row.date), colDate + 6, y + 6, { width: 72 });
-        doc.text(truncate(row.description || 'Vaccination', 52), colDesc + 6, y + 6, {
-          width: 280,
-        });
-        doc.text(formatMoneyFcfa(row.amount), colAmount + 6, y + 6, {
-          width: 110,
-          align: 'right',
-        });
+        doc.text(formatDateFr(row.date), colDate + 6, y + 6, { width: colDateWidth - 8 });
+        doc.text(label, colVaccin + 6, y + 6, { width: colVaccinWidth - 12 });
         y += rowHeight;
-      }
+      });
 
-      y += 8;
-      doc.strokeColor('#2f5235').lineWidth(1).moveTo(48, y).lineTo(48 + pageWidth, y).stroke();
       y += 10;
-      doc.font('Helvetica-Bold').fontSize(10);
-      doc.text('Total dépenses vaccin', colDesc + 6, y);
-      doc.text(formatMoneyFcfa(total), colAmount + 6, y, { width: 110, align: 'right' });
       doc.font('Helvetica').fontSize(9).fillColor('#3d4a34');
-      doc.text(`${input.rows.length} opération(s) de vaccination`, 48, y + 18);
+      doc.text(
+        `${input.rows.length} vaccination(s) enregistrée(s) pour ce lot.`,
+        48,
+        y,
+      );
     }
 
     doc.fontSize(8).fillColor('#6b7a62');
     doc.text(
-      'Ce document récapitule les dépenses catégorie « Vaccin » enregistrées pour la salle.',
+      'Ce document atteste du suivi sanitaire du cheptel (vaccinations et interventions). ' +
+        'Il est destiné aux clients et ne comporte aucune information financière.',
       48,
-      doc.page.height - 48,
+      doc.page.height - 56,
       { width: pageWidth, align: 'center' },
     );
 
@@ -127,5 +126,5 @@ export function vaccinationReportFilename(roomName: string, at = new Date()): st
     .replace(/^-|-$/g, '')
     .toLowerCase();
   const day = at.toISOString().slice(0, 10);
-  return `rapport-vaccination-${slug || 'salle'}-${day}.pdf`;
+  return `carnet-vaccination-${slug || 'lot'}-${day}.pdf`;
 }

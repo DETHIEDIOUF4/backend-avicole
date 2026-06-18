@@ -535,30 +535,18 @@ export class RecordsService {
 
   async getVaccinationReportPdf(user: AuthUser, roomId: string) {
     const room = await this.roomsService.assertManagerRoomAccess(user, roomId);
-    const roomWithManager = await this.prisma.room.findUnique({
-      where: { id: roomId },
-      include: {
-        manager: { select: { firstName: true, lastName: true, phone: true } },
-      },
-    });
     const expenses = await this.prisma.expense.findMany({
       where: { roomId, category: ExpenseCategory.VACCINE },
       orderBy: { date: 'asc' },
     });
     const roomTypeLabel = room.type === RoomType.PULLET ? 'Poulettes' : 'Pondeuses';
-    const manager = roomWithManager?.manager;
-    const managerLabel = manager
-      ? `${manager.firstName}${manager.lastName ? ` ${manager.lastName}` : ''} (${manager.phone})`
-      : undefined;
     const buffer = await buildVaccinationReportPdf({
       farmName: 'Ferme Keur Guilaye',
       roomName: room.name,
       roomTypeLabel,
-      managerLabel,
       rows: expenses.map((row) => ({
         date: row.date,
         description: row.description?.trim() || 'Vaccination',
-        amount: Number(row.amount),
       })),
     });
     return {
