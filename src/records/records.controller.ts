@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, StreamableFile, UseGuards } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -110,5 +110,20 @@ export class RecordsController {
     @Param('roomId') roomId: string,
   ) {
     return this.recordsService.listSales(user, roomId);
+  }
+
+  @Get('rooms/:roomId/vaccination-report')
+  async vaccinationReport(
+    @CurrentUser() user: { sub: string; role: UserRole },
+    @Param('roomId') roomId: string,
+  ): Promise<StreamableFile> {
+    const { buffer, filename } = await this.recordsService.getVaccinationReportPdf(
+      user,
+      roomId,
+    );
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${filename}"`,
+    });
   }
 }
