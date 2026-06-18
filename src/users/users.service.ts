@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { User, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -110,5 +114,17 @@ export class UsersService {
         createdAt: true,
       },
     });
+  }
+
+  async removeUser(id: string, requesterId: string) {
+    if (id === requesterId) {
+      throw new BadRequestException('Vous ne pouvez pas supprimer votre propre compte');
+    }
+    const exists = await this.prisma.user.findUnique({ where: { id } });
+    if (!exists) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+    await this.prisma.user.delete({ where: { id } });
+    return { deleted: true, id };
   }
 }
