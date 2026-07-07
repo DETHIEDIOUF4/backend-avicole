@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import {
   ExpenseCategory,
   FeedType,
@@ -529,6 +529,27 @@ export class RecordsService {
         unitPrice: true,
         total: true,
         notes: true,
+      },
+    });
+  }
+
+  async listFeedPurchases(user: AuthUser) {
+    if (user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Historique achats aliment réservé à l’administrateur');
+    }
+    return this.prisma.expense.findMany({
+      where: {
+        category: ExpenseCategory.FEED,
+        roomId: null,
+      },
+      orderBy: { date: 'desc' },
+      select: {
+        id: true,
+        date: true,
+        feedType: true,
+        feedQuantity: true,
+        amount: true,
+        description: true,
       },
     });
   }

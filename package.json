@@ -32,6 +32,7 @@
     "db:studio": "node node_modules/prisma/build/index.js studio",
     "seed:admin": "ts-node src/scripts/seed-admin.ts",
     "db:purge-operations": "ts-node src/scripts/purge-operational-data.ts",
+    "docs:mise-en-production": "ts-node src/scripts/generate-mise-en-production-pdf.ts",
     "db:migrate:deploy": "node node_modules/prisma/build/index.js migrate deploy",
     "db:seed": "npm run seed:admin"
   },

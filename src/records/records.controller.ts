@@ -112,6 +112,12 @@ export class RecordsController {
     return this.recordsService.listSales(user, roomId);
   }
 
+  @Get('feed-purchases')
+  @Roles(UserRole.ADMIN)
+  listFeedPurchases(@CurrentUser() user: { sub: string; role: UserRole }) {
+    return this.recordsService.listFeedPurchases(user);
+  }
+
   @Get('rooms/:roomId/vaccination-report')
   async vaccinationReport(
     @CurrentUser() user: { sub: string; role: UserRole },
