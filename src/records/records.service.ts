@@ -25,6 +25,10 @@ import { CreatePulletIntakeDto } from './dto/create-pullet-intake.dto';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
 import {
+  buildExpensesReportPdf,
+  expensesReportFilename,
+} from './expenses-report-pdf';
+import {
   buildVaccinationReportPdf,
   vaccinationReportFilename,
 } from './vaccination-report-pdf';
@@ -573,6 +577,40 @@ export class RecordsService {
     return {
       buffer,
       filename: vaccinationReportFilename(room.name),
+    };
+  }
+
+  async getExpensesReportPdf(user: AuthUser, roomId: string) {
+    const room = await this.roomsService.assertManagerRoomAccess(user, roomId);
+    const expenses = await this.prisma.expense.findMany({
+      where: { roomId },
+      orderBy: { date: 'asc' },
+      select: {
+        date: true,
+        category: true,
+        amount: true,
+        description: true,
+        feedType: true,
+        feedQuantity: true,
+      },
+    });
+    const roomTypeLabel = room.type === RoomType.PULLET ? 'Poulettes' : 'Pondeuses';
+    const buffer = await buildExpensesReportPdf({
+      farmName: 'Ferme Keur Guilaye',
+      roomName: room.name,
+      roomTypeLabel,
+      rows: expenses.map((row) => ({
+        date: row.date,
+        category: row.category,
+        amount: Number(row.amount),
+        description: row.description,
+        feedType: row.feedType,
+        feedQuantity: row.feedQuantity,
+      })),
+    });
+    return {
+      buffer,
+      filename: expensesReportFilename(room.name),
     };
   }
 

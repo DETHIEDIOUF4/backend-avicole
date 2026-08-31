@@ -132,4 +132,19 @@ export class RecordsController {
       disposition: `attachment; filename="${filename}"`,
     });
   }
+
+  @Get('rooms/:roomId/expenses-report')
+  async expensesReport(
+    @CurrentUser() user: { sub: string; role: UserRole },
+    @Param('roomId') roomId: string,
+  ): Promise<StreamableFile> {
+    const { buffer, filename } = await this.recordsService.getExpensesReportPdf(
+      user,
+      roomId,
+    );
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${filename}"`,
+    });
+  }
 }
