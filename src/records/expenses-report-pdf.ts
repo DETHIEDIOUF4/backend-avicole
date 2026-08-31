@@ -35,11 +35,11 @@ function formatDateFr(value: Date): string {
 }
 
 function formatMoney(value: number): string {
-  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value)} FCFA`;
+  return `${Math.round(value)} FCFA`;
 }
 
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat('fr-FR').format(value);
+  return String(Math.round(value));
 }
 
 export function expenseCategoryLabel(row: ExpensesReportRow): string {
