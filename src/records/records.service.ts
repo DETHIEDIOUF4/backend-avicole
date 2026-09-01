@@ -476,11 +476,16 @@ export class RecordsService {
         }
       : { roomId };
 
-    const [sales, expenses, mortality, eggProduction, pulletIntake, layerHenIntake, stockMoves] =
+    const [sales, salesByItem, expenses, mortality, eggProduction, pulletIntake, layerHenIntake, stockMoves] =
       await Promise.all([
         this.prisma.sale.aggregate({
           where: { roomId, ...dateBand },
-          _sum: { total: true, quantity: true },
+          _sum: { total: true },
+        }),
+        this.prisma.sale.groupBy({
+          by: ['itemType'],
+          where: { roomId, ...dateBand },
+          _sum: { quantity: true },
         }),
         this.prisma.expense.aggregate({
           where: { roomId, ...dateBand },
@@ -524,7 +529,7 @@ export class RecordsService {
       revenues,
       costs,
       profit: revenues - costs,
-      salesQty: Number(sales._sum.quantity ?? 0),
+      salesQty: this.sumSaleQuantityInUnits(salesByItem),
       mortalityQty: Number(mortality._sum.quantity ?? 0),
       eggQty: Number(eggProduction._sum.quantity ?? 0),
       pulletIntakeQty: Number(pulletIntake._sum.quantity ?? 0),
@@ -627,6 +632,18 @@ export class RecordsService {
       buffer,
       filename: expensesReportFilename(room.name),
     };
+  }
+
+  private sumSaleQuantityInUnits(
+    rows: Array<{ itemType: SaleItemType; _sum: { quantity: number | null } }>,
+  ): number {
+    return rows.reduce((sum, row) => {
+      const qty = Number(row._sum.quantity ?? 0);
+      if (row.itemType === SaleItemType.EGG) {
+        return sum + qty * EGGS_PER_TABLETTE;
+      }
+      return sum + qty;
+    }, 0);
   }
 
   private assertStockCompatibility(roomType: RoomType, itemType: StockItemType) {
