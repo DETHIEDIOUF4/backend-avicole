@@ -411,6 +411,15 @@ export class RecordsService {
           where: { roomId },
           orderBy: { date: 'desc' },
           ...(limitRecent ? { take: 10 } : {}),
+          select: {
+            id: true,
+            date: true,
+            customerName: true,
+            itemType: true,
+            quantity: true,
+            unitPrice: true,
+            total: true,
+          },
         }),
         this.prisma.stockMovement.findMany({
           where: {
