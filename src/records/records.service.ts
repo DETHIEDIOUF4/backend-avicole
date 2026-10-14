@@ -29,6 +29,10 @@ import {
   expensesReportFilename,
 } from './expenses-report-pdf';
 import {
+  buildFeedPurchasesReportPdf,
+  feedPurchasesReportFilename,
+} from './feed-purchases-report-pdf';
+import {
   buildVaccinationReportPdf,
   vaccinationReportFilename,
 } from './vaccination-report-pdf';
@@ -640,6 +644,57 @@ export class RecordsService {
     return {
       buffer,
       filename: expensesReportFilename(room.name),
+    };
+  }
+
+  async getFeedPurchasesReportPdf(user: AuthUser) {
+    if (user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Relevé achats aliment réservé à l’administrateur');
+    }
+    const [rows, totalsRaw] = await Promise.all([
+      this.prisma.expense.findMany({
+        where: {
+          category: ExpenseCategory.FEED,
+          roomId: null,
+        },
+        orderBy: { date: 'asc' },
+        select: {
+          date: true,
+          feedType: true,
+          feedQuantity: true,
+          amount: true,
+          description: true,
+        },
+      }),
+      this.prisma.expense.groupBy({
+        by: ['feedType'],
+        where: {
+          category: ExpenseCategory.FEED,
+          roomId: null,
+        },
+        _sum: { feedQuantity: true },
+      }),
+    ]);
+    const totalsByType = totalsRaw
+      .filter((row) => row.feedType != null)
+      .map((row) => ({
+        feedType: row.feedType!,
+        quantity: row._sum.feedQuantity ?? 0,
+      }));
+    const buffer = await buildFeedPurchasesReportPdf({
+      farmName: 'Ferme Keur Guilaye',
+      rows: rows.map((row) => ({
+        date: row.date,
+        feedType: row.feedType,
+        feedQuantity: row.feedQuantity,
+        amount: Number(row.amount),
+        description: row.description,
+      })),
+      totalsByType,
+    });
+    return {
+      buffer,
+      filename: feedPurchasesReportFilename(),
     };
   }
 

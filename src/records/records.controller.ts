@@ -118,6 +118,18 @@ export class RecordsController {
     return this.recordsService.listFeedPurchases(user);
   }
 
+  @Get('feed-purchases-report')
+  @Roles(UserRole.ADMIN)
+  async feedPurchasesReport(
+    @CurrentUser() user: { sub: string; role: UserRole },
+  ): Promise<StreamableFile> {
+    const { buffer, filename } = await this.recordsService.getFeedPurchasesReportPdf(user);
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${filename}"`,
+    });
+  }
+
   @Get('rooms/:roomId/vaccination-report')
   async vaccinationReport(
     @CurrentUser() user: { sub: string; role: UserRole },
