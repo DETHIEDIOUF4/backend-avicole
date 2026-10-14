@@ -33,6 +33,10 @@ import {
   feedPurchasesReportFilename,
 } from './feed-purchases-report-pdf';
 import {
+  buildRoomFeedUsageSections,
+  type RoomFeedUsageSection,
+} from './feed-usage-by-room';
+import {
   buildVaccinationReportPdf,
   vaccinationReportFilename,
 } from './vaccination-report-pdf';
@@ -591,6 +595,65 @@ export class RecordsService {
     });
   }
 
+  async listFeedUsageByRoom(user: AuthUser) {
+    if (user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Utilisation aliment par salle réservée à l’administrateur');
+    }
+    const sections = await this.loadRoomFeedUsageSections();
+    return { rooms: sections };
+  }
+
+  private async loadRoomFeedUsageSections(): Promise<RoomFeedUsageSection[]> {
+    const [rooms, purchases, movements] = await Promise.all([
+      this.prisma.room.findMany({
+        select: { id: true, name: true, type: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.expense.findMany({
+        where: {
+          category: ExpenseCategory.FEED,
+          roomId: null,
+        },
+        select: {
+          feedType: true,
+          feedQuantity: true,
+          amount: true,
+        },
+      }),
+      this.prisma.stockMovement.findMany({
+        where: {
+          reason: StockMovementReason.FEED_CONSUMPTION,
+          itemType: StockItemType.FEED,
+          refId: { not: null },
+        },
+        select: {
+          refId: true,
+          occurredAt: true,
+          feedType: true,
+          quantity: true,
+          notes: true,
+        },
+        orderBy: { occurredAt: 'asc' },
+      }),
+    ]);
+
+    return buildRoomFeedUsageSections(
+      rooms,
+      movements.map((row) => ({
+        roomId: row.refId!,
+        occurredAt: row.occurredAt,
+        feedType: row.feedType,
+        quantity: row.quantity,
+        notes: row.notes,
+      })),
+      purchases.map((row) => ({
+        feedType: row.feedType,
+        feedQuantity: row.feedQuantity,
+        amount: Number(row.amount),
+      })),
+    );
+  }
+
   async getVaccinationReportPdf(user: AuthUser, roomId: string) {
     const room = await this.roomsService.assertManagerRoomAccess(user, roomId);
     const expenses = await this.prisma.expense.findMany({
@@ -651,7 +714,7 @@ export class RecordsService {
     if (user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Relevé achats aliment réservé à l’administrateur');
     }
-    const [rows, totalsRaw] = await Promise.all([
+    const [rows, totalsRaw, roomUsageSections] = await Promise.all([
       this.prisma.expense.findMany({
         where: {
           category: ExpenseCategory.FEED,
@@ -674,6 +737,7 @@ export class RecordsService {
         },
         _sum: { feedQuantity: true },
       }),
+      this.loadRoomFeedUsageSections(),
     ]);
     const totalsByType = totalsRaw
       .filter((row) => row.feedType != null)
@@ -691,6 +755,7 @@ export class RecordsService {
         description: row.description,
       })),
       totalsByType,
+      roomUsageSections,
     });
     return {
       buffer,

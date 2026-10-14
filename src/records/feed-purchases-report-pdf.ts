@@ -1,6 +1,7 @@
 import { FeedType } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import { feedTypeLabel } from '../common/feed-type-labels';
+import type { RoomFeedUsageSection } from './feed-usage-by-room';
 
 export type FeedPurchaseReportRow = {
   date: Date;
@@ -19,6 +20,7 @@ export type FeedPurchasesReportInput = {
   farmName: string;
   rows: FeedPurchaseReportRow[];
   totalsByType: FeedPurchaseTotalByType[];
+  roomUsageSections: RoomFeedUsageSection[];
   generatedAt?: Date;
 };
 
@@ -48,6 +50,125 @@ function wrapRowHeight(
   return Math.max(minHeight, h + 10);
 }
 
+function ensureSpace(
+  doc: InstanceType<typeof PDFDocument>,
+  y: number,
+  needed: number,
+  pageWidth: number,
+): number {
+  if (y + needed <= doc.page.height - 72) {
+    return y;
+  }
+  doc.addPage();
+  return 48;
+}
+
+function drawRoomUsageSections(
+  doc: InstanceType<typeof PDFDocument>,
+  pageWidth: number,
+  sections: RoomFeedUsageSection[],
+  startY: number,
+): number {
+  let y = ensureSpace(doc, startY, 80, pageWidth);
+  doc.fillColor('#1e2a18').fontSize(11).font('Helvetica-Bold');
+  doc.text('Utilisation aliment par salle', 48, y);
+  y += 16;
+  doc.font('Helvetica').fontSize(8).fillColor('#3d4a34');
+  doc.text(
+    'Coût estimé par ligne : sacs consommés × prix moyen d’achat du type de sac (d’après les achats entrepôt).',
+    48,
+    y,
+    { width: pageWidth },
+  );
+  y += 22;
+
+  for (const section of sections) {
+    y = ensureSpace(doc, y, 60, pageWidth);
+    doc.fillColor('#1e2a18').font('Helvetica-Bold').fontSize(10);
+    doc.text(`${section.roomName} (${section.roomTypeLabel})`, 48, y);
+    y += 14;
+
+    if (section.detailRows.length === 0) {
+      doc.font('Helvetica').fontSize(8).fillColor('#3d4a34');
+      doc.text('Aucune utilisation enregistrée pour cette salle.', 48, y);
+      y += 20;
+      continue;
+    }
+
+    const colDate = 48;
+    const colType = 98;
+    const colQty = 198;
+    const colUnit = 248;
+    const colCost = 318;
+    const colDateW = 46;
+    const colTypeW = 96;
+    const colQtyW = 46;
+    const colUnitW = 66;
+    const colCostW = pageWidth + 48 - colCost;
+
+    y = ensureSpace(doc, y, 28, pageWidth);
+    doc.fillColor('#2f5235').rect(48, y, pageWidth, 22).fill();
+    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7);
+    doc.text('Date', colDate + 4, y + 7);
+    doc.text('Type sac', colType + 4, y + 7);
+    doc.text('Sacs', colQty + 4, y + 7);
+    doc.text('Prix moy./sac', colUnit + 4, y + 7);
+    doc.text('Coût', colCost + 4, y + 7, { width: colCostW - 8, align: 'right' });
+    y += 22;
+    doc.font('Helvetica').fontSize(8).fillColor('#1e2a18');
+
+    section.detailRows.forEach((row, index) => {
+      const note = row.notes?.trim();
+      const rowHeight = note
+        ? Math.max(wrapRowHeight(doc, note, pageWidth - 16, 18), 18)
+        : 18;
+      y = ensureSpace(doc, y, rowHeight, pageWidth);
+      const bg = index % 2 === 0 ? '#f4f7f2' : '#ffffff';
+      doc.fillColor(bg).rect(48, y, pageWidth, rowHeight).fill();
+      doc.fillColor('#1e2a18');
+      doc.text(formatDateFr(row.date), colDate + 4, y + 5, { width: colDateW - 6 });
+      doc.text(feedTypeLabel(row.feedType), colType + 4, y + 5, { width: colTypeW - 8 });
+      doc.text(formatNumber(row.quantity), colQty + 4, y + 5, { width: colQtyW - 8 });
+      doc.text(formatMoney(row.unitCost), colUnit + 4, y + 5, { width: colUnitW - 8 });
+      doc.text(formatMoney(row.lineCost), colCost + 4, y + 5, {
+        width: colCostW - 8,
+        align: 'right',
+      });
+      y += rowHeight;
+    });
+
+    y += 8;
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#1e2a18');
+    doc.text('Synthèse par type', 48, y);
+    y += 12;
+    for (const total of section.totalsByType) {
+      y = ensureSpace(doc, y, 16, pageWidth);
+      doc.font('Helvetica').fontSize(8);
+      doc.text(
+        `${feedTypeLabel(total.feedType)} : ${formatNumber(total.quantity)} sacs — ${formatMoney(total.cost)}`,
+        52,
+        y,
+      );
+      y += 14;
+    }
+
+    y += 4;
+    y = ensureSpace(doc, y, 28, pageWidth);
+    doc.fillColor('#e8efe4').rect(48, y, pageWidth, 24).fill();
+    doc.fillColor('#1e2a18').font('Helvetica-Bold').fontSize(9);
+    doc.text(`Total salle ${section.roomName}`, 52, y + 7);
+    doc.text(
+      `${formatNumber(section.totalSacs)} sacs — ${formatMoney(section.totalCost)}`,
+      colCost + 4,
+      y + 7,
+      { width: colCostW - 8, align: 'right' },
+    );
+    y += 34;
+  }
+
+  return y;
+}
+
 export function buildFeedPurchasesReportPdf(input: FeedPurchasesReportInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 48, size: 'A4' });
@@ -65,9 +186,9 @@ export function buildFeedPurchasesReportPdf(input: FeedPurchasesReportInput): Pr
     doc.fillColor('#ffffff').fontSize(20).font('Helvetica-Bold');
     doc.text(input.farmName, 48, 26, { width: pageWidth });
     doc.fontSize(13).font('Helvetica-Bold');
-    doc.text('Relevé des achats aliment', 48, 52);
+    doc.text('Relevé aliment — achats et utilisation', 48, 52);
     doc.fontSize(10).font('Helvetica');
-    doc.text('Stock global (entrepôt) — quantités et montants', 48, 72);
+    doc.text('Entrepôt + consommation détaillée par salle', 48, 72);
 
     doc.fillColor('#1e2a18').fontSize(11).font('Helvetica-Bold');
     doc.text('Synthèse', 48, 114);
@@ -168,11 +289,14 @@ export function buildFeedPurchasesReportPdf(input: FeedPurchasesReportInput): Pr
       doc.text('Total', colType + 4, y + 9);
       doc.text(formatNumber(totalSacs), colQty + 4, y + 9);
       doc.text(formatMoney(totalAmount), colAmount + 4, y + 9);
+      y += 40;
     }
+
+    y = drawRoomUsageSections(doc, pageWidth, input.roomUsageSections, y + 8);
 
     doc.fontSize(8).fillColor('#6b7a62');
     doc.text(
-      'Achats enregistrés via « Achat aliment » (stock global entrepôt).',
+      'Achats entrepôt et utilisations saisies par salle (coût consommation estimé au prix moyen d’achat).',
       48,
       doc.page.height - 56,
       { width: pageWidth, align: 'center' },
@@ -184,5 +308,5 @@ export function buildFeedPurchasesReportPdf(input: FeedPurchasesReportInput): Pr
 
 export function feedPurchasesReportFilename(at = new Date()): string {
   const day = at.toISOString().slice(0, 10);
-  return `releve-achats-aliment-${day}.pdf`;
+  return `releve-aliment-achats-utilisation-${day}.pdf`;
 }

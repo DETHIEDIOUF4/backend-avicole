@@ -130,6 +130,12 @@ export class RecordsController {
     });
   }
 
+  @Get('feed-usage-by-room')
+  @Roles(UserRole.ADMIN)
+  listFeedUsageByRoom(@CurrentUser() user: { sub: string; role: UserRole }) {
+    return this.recordsService.listFeedUsageByRoom(user);
+  }
+
   @Get('rooms/:roomId/vaccination-report')
   async vaccinationReport(
     @CurrentUser() user: { sub: string; role: UserRole },
